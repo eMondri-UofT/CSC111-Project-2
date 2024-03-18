@@ -135,13 +135,25 @@ def load_graph(information_file: str) -> Graph:
 
     information_file format: (only needed items)
         - column 0:
-            asdf
-        - column 0:
-            asdf
-        - column 0:
-            asdf
-        - column 0:
-            asdf
+            song ID
+        - column 1:
+            song name
+        - column 11:
+            song duration
+        - column 13:
+            song modality
+        - column 16:
+            song acousticness
+        - column 17:
+            song danceability
+        - column 18:
+            song energy
+        - column 19:
+            song instrumentalness
+        - column 23:
+            song valence
+        - column 24:
+            song tempo
 
     Preconditions:
         - information_file is the path to a CSV file with the dataset in the specified format.
