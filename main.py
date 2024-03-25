@@ -1,6 +1,6 @@
 """CSC111 Winter 2024 Project 2
     Title: "Music Reccomendations based on key factors"
-    Author: Mark Lu, Ethan Mondri, _, _
+    Author: Mark Lu, Ethan Mondri, Ata Yenipazar, _
 """
 from __future__ import annotations
 import csv
@@ -35,15 +35,21 @@ class _ValueVertex(_Vertex):
         Initialize a new vertex for a value, with no neighbours.
 
         Preconditions:
-            - (value >= 0.0) and (value < 1.0)
+            - (value >= 0.0) and (value <= 1.0)
         """
         self.value = value
         super().__init__(item)
 
 
-class _SongVertex(_Vertex):
+class _SongVertex(_Vertex):  # in the dataset and load_graph function there are 10 instance attributes we need for songs
     """
     Vertices for songs
+
+    Instance Attributes:
+    - item: song id
+    - name: song name
+    - duration: song duration
+    - modality: song modality
     """
     item: str
     neighbours: set[_Vertex]
@@ -138,18 +144,18 @@ def load_graph(information_file: str) -> Graph:
             song ID
         - column 1:
             song name
-        - column 11:
-            song duration
+        # - column 11:
+        #     song duration
         - column 13:
             song modality
-        - column 16:
-            song acousticness
+        # - column 16:
+        #     song acousticness
         - column 17:
             song danceability
         - column 18:
             song energy
-        - column 19:
-            song instrumentalness
+        # - column 19:
+        #     song instrumentalness
         - column 23:
             song valence
         - column 24:
@@ -158,3 +164,15 @@ def load_graph(information_file: str) -> Graph:
     Preconditions:
         - information_file is the path to a CSV file with the dataset in the specified format.
     """
+    graph = Graph()
+
+
+    with open(information_file, 'r') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            for column in row:
+                if column == 'song_id':
+                    pass
+                else:
+                    pass  # adding the instances of ('song') type vertices.
+
