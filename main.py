@@ -170,9 +170,12 @@ def load_graph(information_file: str) -> Graph:
     with open(information_file, 'r') as file:
         reader = csv.reader(file)
         for row in reader:
+            int col = 0
             for column in row:
-                if column == 'song_id':
+                if col == 0 or col == 1: # All skipped columns should be added to this or.
+                    col += 1
                     pass
                 else:
+                    col += 1
                     pass  # adding the instances of ('song') type vertices.
 
