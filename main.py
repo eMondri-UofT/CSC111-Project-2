@@ -1,6 +1,6 @@
 """CSC111 Winter 2024 Project 2
     Title: "Music Reccomendations based on key factors"
-    Author: Mark Lu, Ethan Mondri, Ata Yenipazar, _
+    Author: Mark Lu, Ethan Mondri, _, _
 """
 from __future__ import annotations
 import csv
@@ -28,37 +28,48 @@ class _ValueVertex(_Vertex):
     """
     item: str
     value: float
-    neighbours: set[_Vertex]
+    neighbours: set[_SongVertex | _ValueVertex]
 
     def __init__(self, item: str, value: float) -> None:
         """
         Initialize a new vertex for a value, with no neighbours.
 
         Preconditions:
-            - (value >= 0.0) and (value <= 1.0)
+            - (value >= 0.0) and (value < 1.0)
         """
         self.value = value
         super().__init__(item)
 
+    def get_value(self) -> float:
+        """
+        Return the value of this ValueVertex.
+        """
 
-class _SongVertex(_Vertex):  # in the dataset and load_graph function there are 10 instance attributes we need for songs
+        return self.value
+
+
+class _SongVertex(_Vertex):
     """
     Vertices for songs
-
-    Instance Attributes:
-    - item: song id
-    - name: song name
-    - duration: song duration
-    - modality: song modality
     """
     item: str
-    neighbours: set[_Vertex]
+    neighbours: set[_ValueVertex]
 
     def __init__(self, item: str) -> None:
         """
         Initialize a new vertex for a song, with no neighbours.
         """
         super().__init__(item)
+
+    def get_value_of_type(self, type: str) -> float:
+        """
+        Return the value of a certain type a song is connected to.
+        """
+        # TODO test
+
+        for vertex in self.neighbours:
+            if vertex.item == type:
+                return vertex.get_value()
 
 
 class Graph:
@@ -68,14 +79,18 @@ class Graph:
     Instance Attributes:
         - _vertices:
             A collection of vertices in this object. Maps item to _Vertex object.
+        - song_names:
+            A dictionary mapping song ids to song names.
     """
-    _vertices: dict[Any, _Vertex]
+    _vertices: dict[Any, _ValueVertex | _SongVertex | _Vertex]
+    song_names = dict[str, str]
 
     def __init__(self) -> None:
         """
         Initialize an empty graph (no vertices or edges).
         """
         self._vertices = {}
+        self.song_names = {}
 
     def add_vertex(self, item: Any, subclass: str = None, value: float = None) -> None:
         """
@@ -84,13 +99,20 @@ class Graph:
         Preconditions:
             - if subclass == 'value': value != None
         """
-        if item not in self._vertices:
+        if item not in self._vertices and (item, value) not in self._vertices:
             if subclass == 'value':
-                self._vertices[item] = _ValueVertex(item, value)
+                self._vertices[(item, value)] = _ValueVertex(item, value)
             elif subclass == 'song':
                 self._vertices[item] = _SongVertex(item)
             else:
                 self._vertices[item] = _Vertex(item)
+
+    def add_song(self, song_id: str, song_name: str) -> None:
+        """
+        Add to the song_names dictionary a mapping between the song_id and the song_name
+        """
+        if song_id not in self.song_names:
+            self.song_names[song_id] = song_name
 
     def add_edge(self, item1: Any, item2: Any) -> None:
         """
@@ -134,6 +156,54 @@ class Graph:
         else:
             raise ValueError
 
+    def get_value_vertex(self, type: str, value: float) -> _Vertex:
+        """
+        Returns the value vertex in _vertices of the correct type (energy, tempo) with the correct value.
+        """
+
+        if (type, value) in self._vertices:
+            return self._vertices[(type, value)]
+        else:
+            raise ValueError
+
+    def get_similarity_by_type(self, song1: str, song2: str, type: str) -> float:
+        """
+        Returns a similarity score between two songs, using the depth of value vertices.
+        """
+        # TODO test
+
+        if song1 not in self._vertices or song2 not in self._vertices:
+            raise ValueError
+
+        value1 = self._vertices[song1].get_value_of_type(type)
+        value2 = self._vertices[song2].get_value_of_type(type)
+        # return depth + the two edges from each song to the values.
+        return abs(value2 - value1) + 2
+
+    def average_similarity(self, song1: str, song2: str) -> float:
+        """
+        Returns the average similarity score across typings for the two inputted songs.
+        """
+        # TODO test
+
+        average = 0
+        num_types = 0
+        for neighbour in self._vertices[song1].neighbours:
+            neighbour_type = neighbour.item
+            average += self._vertices[song1].get_value_of_type(neighbour_type)
+            num_types += 1
+
+        return average / num_types
+
+    def recommend_songs(self, song: str, limit: int) -> list[str]:
+        """
+        Return a list of songs based on similarity scores to the given song.
+        TODO visualize too
+        """
+        # TODO write this function
+
+        chosen_songs = set()
+
 
 def load_graph(information_file: str) -> Graph:
     """
@@ -144,18 +214,18 @@ def load_graph(information_file: str) -> Graph:
             song ID
         - column 1:
             song name
-        # - column 11:
-        #     song duration
+        - column 11:
+            song duration
         - column 13:
             song modality
-        # - column 16:
-        #     song acousticness
+        - column 16:
+            song acousticness
         - column 17:
             song danceability
         - column 18:
             song energy
-        # - column 19:
-        #     song instrumentalness
+        - column 19:
+            song instrumentalness
         - column 23:
             song valence
         - column 24:
@@ -164,18 +234,21 @@ def load_graph(information_file: str) -> Graph:
     Preconditions:
         - information_file is the path to a CSV file with the dataset in the specified format.
     """
+    # TODO test if any of this works, since I wrote it at like 1 AM and didn't test anything
+    # ^ that includes the helper functions, even add_vertex and such
+
     graph = Graph()
 
+    for i in range(0, 101):
+        # Copy this line for every piece of information that's going to be used.
+        graph.add_vertex(('energy', i / 100), 'value', i / 100)
 
-    with open(information_file, 'r') as file:
+    with open(information_file) as file:
         reader = csv.reader(file)
         for row in reader:
-            int col = 0
-            for column in row:
-                if col == 0 or col == 1: # All skipped columns should be added to this or.
-                    col += 1
-                    pass
-                else:
-                    col += 1
-                    pass  # adding the instances of ('song') type vertices.
+            graph.add_vertex(row[0], 'song')
+            graph.add_song(row[0], row[1])
+            # Copy this line for every piece of information that's going to be used.
+            graph.add_edge(row[0], ('energy', row[18]))
 
+    return graph
