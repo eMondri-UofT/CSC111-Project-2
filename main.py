@@ -190,6 +190,36 @@ class Graph:
         else:
             raise ValueError
 
+    def connect_value_edges(self, item1: tuple, item2: tuple) -> None:
+        """
+        Add edges between item1 and item2, incrementing by 0.01 per edge value.
+
+        Raise ValueError if item1 or item2 are not vertices in this graph.
+
+        Preconditions:
+            - isinstance(self._vertices[item1], _ValueVertex)
+            - isinstance(self._vertices[item2], _ValueVertex)
+            - item1 != item2
+        """
+        if item1 in self._vertices and item2 in self._vertices:
+            v1 = self._vertices[item1]
+            v2 = self._vertices[item2]
+            diff = abs(v1.value - v2.value - 0.01)
+
+            # lower value + difference = 1 less than upper value. Works for separated by 1, since while loop.
+            if v1.value > v2.value:
+                while diff > 0.01:
+                    self.add_vertex((item1[0], v2.value + diff), 'value', v2.value + diff)
+                    self.add_edge((item1[0], v2.value + diff), (item1[0], v2.value + diff + 0.01))
+                    diff -= 0.01
+                self.add_edge((item1[0], v2.value), (item1[0], v2.value + 0.01))
+            else:  # v2.value > v1.value
+                while diff > 0.01:
+                    self.add_vertex((item1[0], v1.value + diff), 'value', v1.value + diff)
+                    self.add_edge((item1[0], v1.value + diff), (item1[0], v1.value + diff + 0.01))
+                    diff -= 0.01
+                self.add_edge((item1[0], v1.value), (item1[0], v1.value + 0.01))
+
     def get_vertices(self) -> list:
         """
         Return every vertex in this graph in a list
@@ -476,40 +506,66 @@ def load_visualization_graph(main_graph: Graph, songs: list[str], given_song: st
     graph = Graph()
     given_song_vertex = main_graph.get_song_vertex_by_name(given_song)
 
-    value_edges = set()
+    # Make vertices for the given song and it's values, as well as edges between those.
+    given_song_values = {}
+    graph.add_vertex(main_graph.get_song_by_name(given_song), 'song')
+    for vertex in given_song_vertex.neighbours:
+        vtype = vertex.item
+        value = vertex.value
+        graph.add_vertex((vtype, value), 'value', value)
+        graph.add_edge(main_graph.get_song_by_name(given_song), (vtype, value))
+        given_song_values[vtype] = value
+
+    # Create vertices for the input song as well as the result songs, and all their values
     for song in songs:
-        # Recommended song vertices
-        graph.add_vertex(main_graph.get_song_by_id(song), 'song')
-        # Edge value vertices
-        for vertex in main_graph.get_song_vertex_by_name(main_graph.get_song_by_id(song)).neighbours:
-            graph.add_vertex((vertex.item, vertex.value), 'value', vertex.value)
-            graph.add_edge((vertex.item, vertex.value), main_graph.get_song_by_id(song))
-            value_edges.add(graph.get_value_vertex(vertex.item, vertex.value))
+        # TODO see if this should be song_name or song_id (it's id rn)
+        graph.add_vertex(main_graph.get_song_by_name(song), 'song')
+        for value_vertex in main_graph.get_song_vertex_by_name(song).neighbours:
+            vtype = value_vertex.item
+            value = value_vertex.value
+            graph.add_vertex((vtype, value), 'value', value)
+            graph.add_edge(main_graph.get_song_by_name(song), (vtype, value))
 
-    # Other value vertices + edges between value vertices
-    for edge in value_edges:
-        edge_value = edge.value
-        song_value = given_song_vertex.get_value_of_type(edge.item)
-        difference = int(abs(song_value - edge_value) * 100)
-        for i in range(1, difference + 1):
-            if song_value > edge_value:
-                # TODO I'm probably creating the value vertices wrong here.
-                graph.add_vertex((edge.item, edge_value + (i / 100)), 'value', edge_value)
-                graph.add_edge(graph.get_value_vertex(edge.item, edge_value + (i / 100)),
-                               graph.get_value_vertex(edge.item, edge_value + ((i - 1) / 100)))
-            elif song_value < edge_value:
-                # TODO and here too.
-                graph.add_vertex((edge.item, edge_value - (i / 100)), 'value', edge_value)
-                graph.add_edge(graph.get_value_vertex(edge.item, edge_value - (i / 100)),
-                               graph.get_value_vertex(edge.item, edge_value - ((i + 1) / 100)))
-            else:
-                pass
+            # Not sure if this works
+            graph.connect_value_edges(
+                (vtype, given_song_values[vtype]),
+                (vtype, value)
+            )
 
-    # Song vertex + edges
-    graph.add_vertex(given_song, 'song')
-    for value_vertex in given_song_vertex.neighbours:
-        # graph.add_edge(given_song, graph.get_value_vertex(value_vertex.item, value_vertex.value))
-        graph.add_edge(given_song, (value_vertex.item, value_vertex.value))
+    # value_edges = set()
+    # for song in songs:
+    #     # Recommended song vertices
+    #     graph.add_vertex(main_graph.get_song_by_id(song), 'song')
+    #     # Edge value vertices
+    #     for vertex in main_graph.get_song_vertex_by_name(main_graph.get_song_by_id(song)).neighbours:
+    #         graph.add_vertex((vertex.item, vertex.value), 'value', vertex.value)
+    #         graph.add_edge((vertex.item, vertex.value), main_graph.get_song_by_id(song))
+    #         value_edges.add(graph.get_value_vertex(vertex.item, vertex.value))
+    #
+    # # Other value vertices + edges between value vertices
+    # for edge in value_edges:
+    #     edge_value = edge.value
+    #     song_value = given_song_vertex.get_value_of_type(edge.item)
+    #     difference = int(abs(song_value - edge_value) * 100)
+    #     for i in range(1, difference + 1):
+    #         if song_value > edge_value:
+    #             # TODO I'm probably creating the value vertices wrong here.
+    #             graph.add_vertex((edge.item, edge_value + (i / 100)), 'value', edge_value)
+    #             graph.add_edge(graph.get_value_vertex(edge.item, edge_value + (i / 100)),
+    #                            graph.get_value_vertex(edge.item, edge_value + ((i - 1) / 100)))
+    #         elif song_value < edge_value:
+    #             # TODO and here too.
+    #             graph.add_vertex((edge.item, edge_value - (i / 100)), 'value', edge_value)
+    #             graph.add_edge(graph.get_value_vertex(edge.item, edge_value - (i / 100)),
+    #                            graph.get_value_vertex(edge.item, edge_value - ((i + 1) / 100)))
+    #         else:
+    #             pass
+    #
+    # # Song vertex + edges
+    # graph.add_vertex(given_song, 'song')
+    # for value_vertex in given_song_vertex.neighbours:
+    #     # graph.add_edge(given_song, graph.get_value_vertex(value_vertex.item, value_vertex.value))
+    #     graph.add_edge(given_song, (value_vertex.item, value_vertex.value))
 
     return graph
 
