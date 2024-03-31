@@ -561,7 +561,7 @@ def display_graph(g: Graph = None):
             if isinstance(edge[0], _ValueVertex) and isinstance(edge[1], _ValueVertex):
                 node1 = f'{edge[0].item}, {edge[0].value}'
                 node2 = f'{edge[1].item}, {edge[1].value}'
-                edge_list.append()
+                vis.add_edge(node1, node2)
             elif isinstance(edge[0], _ValueVertex):
                 node1 = f'{edge[0].item}, {edge[0].value}'
                 vis.add_edge(node1, edge[1].item)
