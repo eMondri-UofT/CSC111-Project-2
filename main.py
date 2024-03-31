@@ -223,7 +223,7 @@ class Graph:
                     self.add_vertex((item1[0], round(v2.value + diff, 2)),
                                     'value', round(v2.value + diff, 2))
                     self.add_edge((item1[0], round(v2.value + diff, 2)),
-                                  (item1[0], round(v2.value + diff - 0.01, 2)))
+                                  (item1[0], round(v2.value + diff + 0.01, 2)))
                     diff = round(diff - 0.01, 2)
                 self.add_edge((item1[0], v2.value), (item1[0], round(v2.value + 0.01, 2)))
             else:  # v2.value > v1.value
