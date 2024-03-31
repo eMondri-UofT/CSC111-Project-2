@@ -70,13 +70,13 @@ class _ValueVertex(_Vertex):
         return self.value
 
     def get_song_neighbours(self) -> set[_SongVertex]:
-        f"""
+        """
         Return a set of all _SongVertex neighbours
 
         >>> vv = _ValueVertex('energy', 0.67)
         >>> vv.neighbours = {_SongVertex("Can't Stop The Feeling"), _SongVertex("Don't Stop Me Now")}
-        >>> vv.get_song_neighbours()
-        {_SongVertex("Can't Stop The Feeling"), _SongVertex("Don't Stop Me Now")}
+        >>> all({isinstance(neighbour, _SongVertex) for neighbour in vv.get_song_neighbours()})
+        True
         """
 
         return {neighbour for neighbour in self.neighbours if isinstance(neighbour, _SongVertex)}
@@ -86,11 +86,9 @@ class _ValueVertex(_Vertex):
         Return a set of all _ValueVertex neighbours
 
         >>> vv = _ValueVertex('energy', 0.67)
-        >>> vv2 = _ValueVertex('energy', 0.66)
-        >>> vv.neighbours = {vv2}
-        {vv2}
         >>> vv.neighbours = {_ValueVertex('energy', 0.66), _ValueVertex('energy', 0.68)}
-        {_ValueVertex('energy', 0.66), _ValueVertex('energy', 0.68)}
+        >>> all({isinstance(neighbour, _ValueVertex) for neighbour in vv.get_value_neighbours()})
+        True
         """
 
         return {neighbour for neighbour in self.neighbours if isinstance(neighbour, _ValueVertex)}
@@ -115,11 +113,10 @@ class _SongVertex(_Vertex):
         Return the value of a certain type a song is connected to.
 
         >>> sv = _SongVertex("Don't Stop Me Now")
-        >>> sv.neighbours = {_ValueVertex('energy', 0.66)}
+        >>> sv.neighbours = {_ValueVertex('energy', 0.66), _ValueVertex('valence', 0.43)}
         >>> sv.get_value_of_type('energy')
         0.66
         """
-        # TODO test
 
         for vertex in self.neighbours:
             if vertex.item == type:
@@ -167,7 +164,8 @@ class Graph:
 
     def add_song(self, song_id: str, song_name: str) -> None:
         """
-        Add to the song_names dictionary a mapping between the song_id and the song_name
+        Add to the song_names dictionary a mapping between the song_id and the song_name in both
+        song_names (key = song_id) and song_ids (key = song_name)
         """
         if song_id not in self.song_names:
             self.song_names[song_id] = song_name
@@ -194,14 +192,14 @@ class Graph:
 
     def get_vertices(self) -> list:
         """
-        Return every vertex in this graph
+        Return every vertex in this graph in a list
         """
 
         return list(self._vertices.values())
 
     def get_edges(self) -> set[tuple]:
         """
-        Return every edge in this graph, as a set of tuples
+        Return every edge in this graph as a set of tuples (first vertex, second vertex)
         """
         edges = set()
         for v in self._vertices.values():
@@ -209,63 +207,67 @@ class Graph:
                 edges.add((n.item, v.item))
         return edges
 
-    def adjacent(self, item1: Any, item2: Any) -> bool:
-        """
-        Return whether item1 and item2 are adjacent vertices.
-
-        Return false if either item is not in this graph.
-        """
-        if item1 in self._vertices and item2 in self._vertices:
-            v1 = self._vertices[item1]
-            return any(v2.item == item2 for v2 in v1.neighbours)
-        else:
-            return False
-
-    def get_neighbours(self, item: Any) -> set:
-        """
-        Returns the items neighbouring the given item.
-
-        Raise a ValueError if the given item is not in this graph.
-        """
-        if item in self._vertices:
-            v = self._vertices[item]
-            return {neighbour.item for neighbour in v.neighbours}
-        else:
-            raise ValueError
-
     def get_song_vertex_by_name(self, song_name: str) -> _SongVertex:
         """
-        Returns a song vertex given the song's id
+        Returns a song vertex given the song's name
+
+        >>> g = Graph()
+        >>> g.add_vertex('1010001', 'song')
+        >>> g.add_song('1010001', 'Call Me Maybe')
+        >>> song_vertex = g.get_song_vertex_by_name('Call Me Maybe')
+        >>> song_vertex.item
+        '1010001'
         """
 
-        if song_name not in self.song_names:
+        if song_name not in self.song_ids:
             raise IndexError
         else:
-            return self._vertices[self.song_names[song_name]]
+            return self._vertices[self.song_ids[song_name]]
 
     def get_song_by_name(self, song_name: str) -> str:
         """
-        Returns a song's id given it's name
+        Returns a song's id given its name
+
+        >>> g = Graph()
+        >>> g.add_vertex('1010001', 'song')
+        >>> g.add_song('1010001', 'Call Me Maybe')
+        >>> g.get_song_by_name('Call Me Maybe')
+        '1010001'
         """
 
-        if song_name not in self.song_names:
+        if song_name not in self.song_ids:
             raise IndexError
         else:
-            return self.song_names[song_name]
+            return self.song_ids[song_name]
 
     def get_song_by_id(self, song_id: str) -> str:
         """
-        Returns a song's name given it's id
+        Returns a song's name given its id
+
+        >>> g = Graph()
+        >>> g.add_vertex('1010001', 'song')
+        >>> g.add_song('1010001', 'Call Me Maybe')
+        >>> g.get_song_by_id('1010001')
+        'Call Me Maybe'
         """
 
-        if song_id not in self.song_ids:
+        if song_id not in self.song_names:
             raise IndexError
         else:
-            return self.song_ids[song_id]
+            return self.song_names[song_id]
 
     def get_value_vertex(self, type: str, value: float) -> _ValueVertex:
         """
         Returns the value vertex in _vertices of the correct type (energy, tempo) with the correct value.
+
+        >>> g = Graph()
+        >>> g.add_vertex(('energy', 0.66), 'value', 0.66)
+        >>> g.add_vertex(('energy', 0.67), 'value', 0.67)
+        >>> value_vertex = g.get_value_vertex('energy', 0.66)
+        >>> value_vertex.item
+        'energy'
+        >>> value_vertex.value
+        0.66
         """
 
         if (type, value) in self._vertices:
@@ -276,8 +278,27 @@ class Graph:
     def get_similarity_by_type(self, song1: str, song2: str, type: str) -> float:
         """
         Returns a similarity score between two songs, using the depth of value vertices.
+        # TODO this currently needs song1 and song2 to be IDs, as in 1010001, not Call Me Maybe
+
+        # TODO note that this outputs similarities in decimal form, is that right?
+
+        >>> g = Graph()
+        >>> g.add_vertex('1010001', 'song')
+        >>> g.add_vertex(('energy', 0.60), 'value', 0.60)
+        >>> g.add_edge('1010001', ('energy', 0.60))
+        >>> g.add_vertex(('energy', 0.61), 'value', 0.61)
+        >>> g.add_edge(('energy', 0.60), ('energy', 0.61))
+        >>> g.add_vertex(('energy', 0.62), 'value', 0.62)
+        >>> g.add_edge(('energy', 0.61), ('energy', 0.62))
+        >>> g.add_vertex(('energy', 0.63), 'value', 0.63)
+        >>> g.add_edge(('energy', 0.62), ('energy', 0.63))
+        >>> g.add_vertex(('energy', 0.64), 'value', 0.64)
+        >>> g.add_edge(('energy', 0.63), ('energy', 0.64))
+        >>> g.add_vertex('1110001', 'song')
+        >>> g.add_edge('1110001', ('energy', 0.64))
+        >>> g.get_similarity_by_type('1010001', '1110001', 'energy')
+        0.06
         """
-        # TODO test
 
         if song1 not in self._vertices or song2 not in self._vertices:
             raise ValueError
@@ -285,14 +306,41 @@ class Graph:
         value1 = self._vertices[song1].get_value_of_type(type)
         value2 = self._vertices[song2].get_value_of_type(type)
         # return depth + the two edges from each song to the values.
-        return abs(value2 - value1) + 2
+        return round(abs(value2 - value1) + 0.02, 2)
 
     def average_similarity(self, song1: str, song2: str) -> float:
         """
         Returns the average similarity score across typings for the two inputted songs.
-        """
-        # TODO test
 
+        >>> g = Graph()
+        >>> # energy and song vertices
+        >>> g.add_vertex('1010001', 'song')
+        >>> g.add_vertex(('energy', 0.60), 'value', 0.60)
+        >>> g.add_edge('1010001', ('energy', 0.60))
+        >>> g.add_vertex(('energy', 0.61), 'value', 0.61)
+        >>> g.add_edge(('energy', 0.60), ('energy', 0.61))
+        >>> g.add_vertex(('energy', 0.62), 'value', 0.62)
+        >>> g.add_edge(('energy', 0.61), ('energy', 0.62))
+        >>> g.add_vertex(('energy', 0.63), 'value', 0.63)
+        >>> g.add_edge(('energy', 0.62), ('energy', 0.63))
+        >>> g.add_vertex(('energy', 0.64), 'value', 0.64)
+        >>> g.add_edge(('energy', 0.63), ('energy', 0.64))
+        >>> g.add_vertex('1110001', 'song')
+        >>> g.add_edge('1110001', ('energy', 0.64))
+        >>> # valence vertices
+        >>> g.add_vertex(('valence', 0.30), 'value', 0.30)
+        >>> g.add_edge('1010001', ('valence', 0.30))
+        >>> g.add_vertex(('valence', 0.31), 'value', 0.31)
+        >>> g.add_edge(('valence', 0.30), ('valence', 0.31))
+        >>> g.add_vertex(('valence', 0.32), 'value', 0.32)
+        >>> g.add_edge(('valence', 0.31), ('valence', 0.32))
+        >>> g.add_edge('1110001', ('valence', 0.32))
+        >>> # average of 0.04 and 0.06
+        >>> g.average_similarity('1010001', '1110001')
+        0.05
+        """
+
+        # TODO this takes song1 and song2 as song IDs not as names.
         average = 0
         num_types = 0
         for neighbour in self._vertices[song1].neighbours:
@@ -300,13 +348,12 @@ class Graph:
             average += self.get_similarity_by_type(song1, song2, neighbour_type)
             num_types += 1
 
-        return average / num_types
+        return round(average / num_types, 2)
 
     def recommend_songs(self, song: str, limit: int) -> list[str]:
         """
         Return a list of songs based on similarity scores to the given song.
         """
-        # TODO write this function
 
         song_similarity_dict = {}
         # Nearest vertices
@@ -335,16 +382,35 @@ class Graph:
     def value_vertex_by_distance(self, vertex: _ValueVertex, distance: int) -> Any:
         """
         Return the value vertexes [distance] away from the given vertex
+
+        >>> g = Graph()
+        >>> g.add_vertex(('energy', 0.60), 'value', 0.60)
+        >>> g.add_vertex(('energy', 0.61), 'value', 0.61)
+        >>> g.add_edge(('energy', 0.60), ('energy', 0.61))
+        >>> g.add_vertex(('energy', 0.62), 'value', 0.62)
+        >>> g.add_edge(('energy', 0.61), ('energy', 0.62))
+        >>> g.add_vertex(('energy', 0.63), 'value', 0.63)
+        >>> g.add_edge(('energy', 0.62), ('energy', 0.63))
+        >>> g.add_vertex(('energy', 0.64), 'value', 0.64)
+        >>> g.add_edge(('energy', 0.63), ('energy', 0.64))
+        >>> g.add_vertex(('energy', 0.65), 'value', 0.65)
+        >>> g.add_edge(('energy', 0.64), ('energy', 0.65))
+        >>> two_away = g.value_vertex_by_distance(g.get_value_vertex('energy', 0.63), 2)
+        >>> len(two_away)
+        2
+        >>> {v.value for v in two_away} == {0.65, 0.61}
+        True
         """
 
         if distance == 0:
-            return {vertex}
+            return [vertex]
         else:
-            vertices = set()
+            # It's a list for the sake of list.extend, better for this than set.union
+            vertices = []
             for neighbour in vertex.get_value_neighbours():
-                vertices.union(self.value_vertex_by_distance(neighbour, distance - 1))
+                vertices.extend(self.value_vertex_by_distance(neighbour, distance - 1))
 
-            return {v for v in vertices if v.value - distance == vertex.value}
+            return {v for v in vertices if round(abs(v.value - vertex.value), 2) == distance / 100}
 
 
 def load_graph(information_file: str) -> Graph:
@@ -376,24 +442,25 @@ def load_graph(information_file: str) -> Graph:
     Preconditions:
         - information_file is the path to a CSV file with the dataset in the specified format.
     """
-    # TODO test if any of this works, since I wrote it at like 1 AM and didn't test anything
-    # ^ that includes the helper functions, even add_vertex and such
 
     graph = Graph()
 
     for i in range(0, 101):
         # Copy this line for every piece of information that's going to be used.
         graph.add_vertex(('energy', i / 100), 'value', i / 100)
+        # TODO value vertices everywhere should be of format (type, value)
 
     for i in range(1, 101):
         # Copy this line for every piece of information that's going to be used.
         graph.add_edge(('energy', (i - 1) / 100), ('energy', i / 100))
 
-    with open(information_file) as file:
+    # This needs to be clarified as utf-8, for some reason it doesn't read it correctly otherwise.
+    with open(information_file, encoding='utf-8') as file:
         reader = csv.reader(file)
         next(reader, None)
         for row in reader:
             graph.add_vertex(row[0], 'song')
+            # TODO song vertices everywhere should be of item song_id
             graph.add_song(row[1], row[0])
             # Copy this line for every piece of information that's going to be used.
             graph.add_edge(row[0], ('energy', round(float(row[17]), 2)))
@@ -405,7 +472,6 @@ def load_visualization_graph(main_graph: Graph, songs: list[str], given_song: st
     """
     Create a graph with all the songs in songs and all the value vertices in between
     """
-    # TODO finish this
 
     graph = Graph()
     given_song_vertex = main_graph.get_song_vertex_by_name(given_song)
@@ -485,7 +551,8 @@ def submission_of_user():
 
 if __name__ == '__main__':
     # create graph
-    graph = load_graph("tracks_features_first_2000.csv")
+    # TODO decide if we want one million songs, one hundred thousand, or some other number.
+    graph = load_graph("tracks_features_one_million.csv")
     # create GUI
     root = tk.Tk()
     root.title("Music Recommendations")
