@@ -219,10 +219,10 @@ class Graph:
         '1010001'
         """
 
-        if song_name not in self.song_ids:
+        if song_name not in self.song_names:
             raise IndexError
         else:
-            return self._vertices[self.song_ids[song_name]]
+            return self._vertices[self.song_names[song_name]]
 
     def get_song_by_name(self, song_name: str) -> str:
         """
@@ -235,10 +235,10 @@ class Graph:
         '1010001'
         """
 
-        if song_name not in self.song_ids:
+        if song_name not in self.song_names:
             raise IndexError
         else:
-            return self.song_ids[song_name]
+            return self.song_names[song_name]
 
     def get_song_by_id(self, song_id: str) -> str:
         """
@@ -251,10 +251,10 @@ class Graph:
         'Call Me Maybe'
         """
 
-        if song_id not in self.song_names:
+        if song_id not in self.song_ids:
             raise IndexError
         else:
-            return self.song_names[song_id]
+            return self.song_ids[song_id]
 
     def get_value_vertex(self, type: str, value: float) -> _ValueVertex:
         """
@@ -278,9 +278,6 @@ class Graph:
     def get_similarity_by_type(self, song1: str, song2: str, type: str) -> float:
         """
         Returns a similarity score between two songs, using the depth of value vertices.
-        # TODO this currently needs song1 and song2 to be IDs, as in 1010001, not Call Me Maybe
-
-        # TODO note that this outputs similarities in decimal form, is that right?
 
         >>> g = Graph()
         >>> g.add_vertex('1010001', 'song')
@@ -340,7 +337,6 @@ class Graph:
         0.05
         """
 
-        # TODO this takes song1 and song2 as song IDs not as names.
         average = 0
         num_types = 0
         for neighbour in self._vertices[song1].neighbours:
@@ -359,14 +355,18 @@ class Graph:
         # Nearest vertices
         for neighbour in self.get_song_vertex_by_name(song).neighbours:
             for neighbour_song in neighbour.get_song_neighbours():
-                song_similarity_dict[neighbour_song.item] = self.average_similarity(
-                    self.get_song_by_name(song), self.get_song_by_id(neighbour_song.item))
+                song_similarity_dict[self.get_song_by_id(neighbour_song.item)] = self.average_similarity(
+                    self.get_song_by_name(song), neighbour_song.item)
         sorted_one_away = sorted(song_similarity_dict, key=song_similarity_dict.get)
         sorted_one_away = sorted_one_away[:limit // 2]
-        average_one_away = int(sorted_one_away[-1])
-        for key in song_similarity_dict:
-            if song_similarity_dict[key] > average_one_away:
-                song_similarity_dict.pop(key)
+        average_one_away = int(song_similarity_dict[sorted_one_away[-1]])
+
+        sorted_first_half = []
+        for item in sorted_one_away:
+            if song_similarity_dict[item] <= average_one_away:
+                sorted_first_half += item
+
+        # TODO this entire section is almost definitely wrong.
         while len(song_similarity_dict) < limit:
             distance = 1
             for neighbour in self.get_song_vertex_by_name(song).neighbours:
@@ -376,8 +376,10 @@ class Graph:
                             self.get_song_by_name(song), self.get_song_by_id(neighbour_song.item))
                         if neighbour_song_similarity <= average_one_away:
                             song_similarity_dict[neighbour_song.item] = neighbour_song_similarity
+                            sorted_first_half += neighbour_song.item
             distance += 1
-        return sorted(song_similarity_dict, key=song_similarity_dict.get)
+        # return sorted(song_similarity_dict, key=song_similarity_dict.get)
+        return sorted(sorted_first_half)
 
     def value_vertex_by_distance(self, vertex: _ValueVertex, distance: int) -> Any:
         """
@@ -448,7 +450,6 @@ def load_graph(information_file: str) -> Graph:
     for i in range(0, 101):
         # Copy this line for every piece of information that's going to be used.
         graph.add_vertex(('energy', i / 100), 'value', i / 100)
-        # TODO value vertices everywhere should be of format (type, value)
 
     for i in range(1, 101):
         # Copy this line for every piece of information that's going to be used.
@@ -460,7 +461,6 @@ def load_graph(information_file: str) -> Graph:
         next(reader, None)
         for row in reader:
             graph.add_vertex(row[0], 'song')
-            # TODO song vertices everywhere should be of item song_id
             graph.add_song(row[1], row[0])
             # Copy this line for every piece of information that's going to be used.
             graph.add_edge(row[0], ('energy', round(float(row[17]), 2)))
@@ -493,20 +493,23 @@ def load_visualization_graph(main_graph: Graph, songs: list[str], given_song: st
         difference = int(abs(song_value - edge_value) * 100)
         for i in range(1, difference + 1):
             if song_value > edge_value:
-                graph.add_vertex((edge.item, edge_value + i), 'value', edge_value)
-                graph.add_edge(graph.get_value_vertex(edge.item, edge_value + i),
-                               graph.get_value_vertex(edge.item, edge_value + i - 1))
+                # TODO I'm probably creating the value vertices wrong here.
+                graph.add_vertex((edge.item, edge_value + (i / 100)), 'value', edge_value)
+                graph.add_edge(graph.get_value_vertex(edge.item, edge_value + (i / 100)),
+                               graph.get_value_vertex(edge.item, edge_value + ((i - 1) / 100)))
             elif song_value < edge_value:
-                graph.add_vertex((edge.item, edge_value - i), 'value', edge_value)
-                graph.add_edge(graph.get_value_vertex(edge.item, edge_value - i),
-                               graph.get_value_vertex(edge.item, edge_value - i + 1))
+                # TODO and here too.
+                graph.add_vertex((edge.item, edge_value - (i / 100)), 'value', edge_value)
+                graph.add_edge(graph.get_value_vertex(edge.item, edge_value - (i / 100)),
+                               graph.get_value_vertex(edge.item, edge_value - ((i + 1) / 100)))
             else:
                 pass
 
     # Song vertex + edges
     graph.add_vertex(given_song, 'song')
-    for value_vertex in {v for v in given_song_vertex.neighbours}:
-        graph.add_edge(given_song, graph.get_value_vertex(value_vertex.item, value_vertex.value))
+    for value_vertex in given_song_vertex.neighbours:
+        # graph.add_edge(given_song, graph.get_value_vertex(value_vertex.item, value_vertex.value))
+        graph.add_edge(given_song, (value_vertex.item, value_vertex.value))
 
     return graph
 
