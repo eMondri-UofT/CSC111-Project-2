@@ -212,7 +212,10 @@ class Graph:
         if item1 in self._vertices and item2 in self._vertices:
             v1 = self._vertices[item1]
             v2 = self._vertices[item2]
-            diff = round(abs(v1.value - v2.value - 0.01), 2)
+            if round(v1.value - v2.value, 2) != 0:
+                diff = round(abs(v1.value - v2.value) - 0.01, 2)
+            else:
+                return None
 
             # lower value + difference = 1 less than upper value. Works for separated by 1, since while loop.
             if v1.value > v2.value:
@@ -220,7 +223,7 @@ class Graph:
                     self.add_vertex((item1[0], round(v2.value + diff, 2)),
                                     'value', round(v2.value + diff, 2))
                     self.add_edge((item1[0], round(v2.value + diff, 2)),
-                                  (item1[0], round(v2.value + diff + 0.01, 2)))
+                                  (item1[0], round(v2.value + diff - 0.01, 2)))
                     diff = round(diff - 0.01, 2)
                 self.add_edge((item1[0], v2.value), (item1[0], round(v2.value + 0.01, 2)))
             else:  # v2.value > v1.value
@@ -228,7 +231,7 @@ class Graph:
                     self.add_vertex((item1[0], round(v1.value + diff, 2)),
                                     'value', round(v1.value + diff, 2))
                     self.add_edge((item1[0], round(v1.value + diff, 2)),
-                                  (item1[0], round(v1.value + diff - 0.01, 2)))
+                                  (item1[0], round(v1.value + diff + 0.01, 2)))
                     diff = round(diff - 0.01, 2)
                 self.add_edge((item1[0], v1.value), (item1[0], round(v1.value + 0.01, 2)))
 
