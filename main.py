@@ -7,6 +7,7 @@ import csv
 from typing import Any
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import networkx as nx
@@ -172,6 +173,13 @@ class Graph:
         if song_name not in self.song_ids:
             self.song_ids[song_name] = song_id
 
+    def does_song_name_exist(self, song_name: str) -> bool:
+        """
+        Returns whether song_name has a matching id in this graph
+        """
+
+        return song_name in self.song_names
+
     def add_edge(self, item1: Any, item2: Any) -> None:
         """
         Add an edge between the two vertices with the given items in the graph.
@@ -204,21 +212,25 @@ class Graph:
         if item1 in self._vertices and item2 in self._vertices:
             v1 = self._vertices[item1]
             v2 = self._vertices[item2]
-            diff = abs(v1.value - v2.value - 0.01)
+            diff = round(abs(v1.value - v2.value - 0.01), 2)
 
             # lower value + difference = 1 less than upper value. Works for separated by 1, since while loop.
             if v1.value > v2.value:
-                while diff > 0.01:
-                    self.add_vertex((item1[0], v2.value + diff), 'value', v2.value + diff)
-                    self.add_edge((item1[0], v2.value + diff), (item1[0], v2.value + diff + 0.01))
-                    diff -= 0.01
-                self.add_edge((item1[0], v2.value), (item1[0], v2.value + 0.01))
+                while diff > 0.00:
+                    self.add_vertex((item1[0], round(v2.value + diff, 2)),
+                                    'value', round(v2.value + diff, 2))
+                    self.add_edge((item1[0], round(v2.value + diff, 2)),
+                                  (item1[0], round(v2.value + diff + 0.01, 2)))
+                    diff = round(diff - 0.01, 2)
+                self.add_edge((item1[0], v2.value), (item1[0], round(v2.value + 0.01, 2)))
             else:  # v2.value > v1.value
-                while diff > 0.01:
-                    self.add_vertex((item1[0], v1.value + diff), 'value', v1.value + diff)
-                    self.add_edge((item1[0], v1.value + diff), (item1[0], v1.value + diff + 0.01))
-                    diff -= 0.01
-                self.add_edge((item1[0], v1.value), (item1[0], v1.value + 0.01))
+                while diff > 0.00:
+                    self.add_vertex((item1[0], round(v1.value + diff, 2)),
+                                    'value', round(v1.value + diff, 2))
+                    self.add_edge((item1[0], round(v1.value + diff, 2)),
+                                  (item1[0], round(v1.value + diff - 0.01, 2)))
+                    diff = round(diff - 0.01, 2)
+                self.add_edge((item1[0], v1.value), (item1[0], round(v1.value + 0.01, 2)))
 
     def get_vertices(self) -> list:
         """
@@ -234,7 +246,7 @@ class Graph:
         edges = set()
         for v in self._vertices.values():
             for n in v.neighbours:
-                edges.add((n.item, v.item))
+                edges.add((n, v))
         return edges
 
     def get_song_vertex_by_name(self, song_name: str) -> _SongVertex:
@@ -382,34 +394,13 @@ class Graph:
         """
 
         song_similarity_dict = {}
-        # Nearest vertices
-        for neighbour in self.get_song_vertex_by_name(song).neighbours:
-            for neighbour_song in neighbour.get_song_neighbours():
-                song_similarity_dict[self.get_song_by_id(neighbour_song.item)] = self.average_similarity(
-                    self.get_song_by_name(song), neighbour_song.item)
-        sorted_one_away = sorted(song_similarity_dict, key=song_similarity_dict.get)
-        sorted_one_away = sorted_one_away[:limit // 2]
-        average_one_away = int(song_similarity_dict[sorted_one_away[-1]])
-
-        sorted_first_half = []
-        for item in sorted_one_away:
-            if song_similarity_dict[item] <= average_one_away:
-                sorted_first_half += item
-
-        # TODO this entire section is almost definitely wrong.
-        while len(song_similarity_dict) < limit:
-            distance = 1
-            for neighbour in self.get_song_vertex_by_name(song).neighbours:
-                for distant_vertex in self.value_vertex_by_distance(neighbour, distance):
-                    for neighbour_song in distant_vertex.get_song_neighbours():
-                        neighbour_song_similarity = self.average_similarity(
-                            self.get_song_by_name(song), self.get_song_by_id(neighbour_song.item))
-                        if neighbour_song_similarity <= average_one_away:
-                            song_similarity_dict[neighbour_song.item] = neighbour_song_similarity
-                            sorted_first_half += neighbour_song.item
-            distance += 1
-        # return sorted(song_similarity_dict, key=song_similarity_dict.get)
-        return sorted(sorted_first_half)
+        # for vertex in self.get_song_vertices():
+        for vertex in self.get_vertices():
+            if isinstance(vertex, _SongVertex):
+                song_similarity_dict[vertex.item] = self.average_similarity(
+                    self.get_song_by_name(song), vertex.item)
+        sorted_similarity = sorted(song_similarity_dict, key=song_similarity_dict.get)
+        return sorted_similarity[:limit + 1]
 
     def value_vertex_by_distance(self, vertex: _ValueVertex, distance: int) -> Any:
         """
@@ -428,8 +419,6 @@ class Graph:
         >>> g.add_vertex(('energy', 0.65), 'value', 0.65)
         >>> g.add_edge(('energy', 0.64), ('energy', 0.65))
         >>> two_away = g.value_vertex_by_distance(g.get_value_vertex('energy', 0.63), 2)
-        >>> len(two_away)
-        2
         >>> {v.value for v in two_away} == {0.65, 0.61}
         True
         """
@@ -479,11 +468,15 @@ def load_graph(information_file: str) -> Graph:
 
     for i in range(0, 101):
         # Copy this line for every piece of information that's going to be used.
+        graph.add_vertex(('danceability', i / 100), 'value', i / 100)
         graph.add_vertex(('energy', i / 100), 'value', i / 100)
+        graph.add_vertex(('valence', i / 100), 'value', i / 100)
 
     for i in range(1, 101):
         # Copy this line for every piece of information that's going to be used.
+        graph.add_edge(('danceability', (i - 1) / 100), ('danceability', i / 100))
         graph.add_edge(('energy', (i - 1) / 100), ('energy', i / 100))
+        graph.add_edge(('valence', (i - 1) / 100), ('valence', i / 100))
 
     # This needs to be clarified as utf-8, for some reason it doesn't read it correctly otherwise.
     with open(information_file, encoding='utf-8') as file:
@@ -493,7 +486,9 @@ def load_graph(information_file: str) -> Graph:
             graph.add_vertex(row[0], 'song')
             graph.add_song(row[1], row[0])
             # Copy this line for every piece of information that's going to be used.
-            graph.add_edge(row[0], ('energy', round(float(row[17]), 2)))
+            graph.add_edge(row[0], ('danceability', round(float(row[9]), 2)))
+            graph.add_edge(row[0], ('energy', round(float(row[10]), 2)))
+            graph.add_edge(row[0], ('valence', round(float(row[17]), 2)))
 
     return graph
 
@@ -508,64 +503,33 @@ def load_visualization_graph(main_graph: Graph, songs: list[str], given_song: st
 
     # Make vertices for the given song and it's values, as well as edges between those.
     given_song_values = {}
-    graph.add_vertex(main_graph.get_song_by_name(given_song), 'song')
+    # graph.add_vertex(main_graph.get_song_by_name(given_song), 'song')
+    graph.add_vertex(given_song, 'song')
     for vertex in given_song_vertex.neighbours:
         vtype = vertex.item
         value = vertex.value
         graph.add_vertex((vtype, value), 'value', value)
-        graph.add_edge(main_graph.get_song_by_name(given_song), (vtype, value))
+        # graph.add_edge(main_graph.get_song_by_name(given_song), (vtype, value))
+        graph.add_edge(given_song, (vtype, value))
         given_song_values[vtype] = value
 
     # Create vertices for the input song as well as the result songs, and all their values
     for song in songs:
-        # TODO see if this should be song_name or song_id (it's id rn)
-        graph.add_vertex(main_graph.get_song_by_name(song), 'song')
-        for value_vertex in main_graph.get_song_vertex_by_name(song).neighbours:
+        # TODO see if this should be song_name or song_id (it's names rn)
+        # graph.add_vertex(main_graph.get_song_by_name(song), 'song')
+        graph.add_vertex(main_graph.get_song_by_id(song), 'song')
+        for value_vertex in main_graph.get_song_vertex_by_name(main_graph.get_song_by_id(song)).neighbours:
             vtype = value_vertex.item
             value = value_vertex.value
             graph.add_vertex((vtype, value), 'value', value)
-            graph.add_edge(main_graph.get_song_by_name(song), (vtype, value))
+            # graph.add_edge(main_graph.get_song_by_name(song), (vtype, value))
+            graph.add_edge(main_graph.get_song_by_id(song), (vtype, value))
 
             # Not sure if this works
             graph.connect_value_edges(
                 (vtype, given_song_values[vtype]),
                 (vtype, value)
             )
-
-    # value_edges = set()
-    # for song in songs:
-    #     # Recommended song vertices
-    #     graph.add_vertex(main_graph.get_song_by_id(song), 'song')
-    #     # Edge value vertices
-    #     for vertex in main_graph.get_song_vertex_by_name(main_graph.get_song_by_id(song)).neighbours:
-    #         graph.add_vertex((vertex.item, vertex.value), 'value', vertex.value)
-    #         graph.add_edge((vertex.item, vertex.value), main_graph.get_song_by_id(song))
-    #         value_edges.add(graph.get_value_vertex(vertex.item, vertex.value))
-    #
-    # # Other value vertices + edges between value vertices
-    # for edge in value_edges:
-    #     edge_value = edge.value
-    #     song_value = given_song_vertex.get_value_of_type(edge.item)
-    #     difference = int(abs(song_value - edge_value) * 100)
-    #     for i in range(1, difference + 1):
-    #         if song_value > edge_value:
-    #             # TODO I'm probably creating the value vertices wrong here.
-    #             graph.add_vertex((edge.item, edge_value + (i / 100)), 'value', edge_value)
-    #             graph.add_edge(graph.get_value_vertex(edge.item, edge_value + (i / 100)),
-    #                            graph.get_value_vertex(edge.item, edge_value + ((i - 1) / 100)))
-    #         elif song_value < edge_value:
-    #             # TODO and here too.
-    #             graph.add_vertex((edge.item, edge_value - (i / 100)), 'value', edge_value)
-    #             graph.add_edge(graph.get_value_vertex(edge.item, edge_value - (i / 100)),
-    #                            graph.get_value_vertex(edge.item, edge_value - ((i + 1) / 100)))
-    #         else:
-    #             pass
-    #
-    # # Song vertex + edges
-    # graph.add_vertex(given_song, 'song')
-    # for value_vertex in given_song_vertex.neighbours:
-    #     # graph.add_edge(given_song, graph.get_value_vertex(value_vertex.item, value_vertex.value))
-    #     graph.add_edge(given_song, (value_vertex.item, value_vertex.value))
 
     return graph
 
@@ -575,24 +539,40 @@ def display_graph(g: Graph = None):
     """
     Display the graph in the Tkinter window.
     """
-    for widget in graph_frame.winfo_children():
-        widget.destroy()
+    global figure, canvas
 
-    fig, ax = plt.subplots()
+    if canvas is not None:
+        figure.clear()
+    else:
+        figure = plt.figure()
+        canvas = FigureCanvasTkAgg(figure, master=graph_frame)
+
+    ax = figure.add_subplot()
 
     if g is None:
         vis = nx.Graph()
         vis.add_node("No data available")
     else:
         vis = nx.Graph()
-        for n in g.get_vertices():
-            vis.add_node(n)
-        for e in g.get_edges():
-            vis.add_edge(*e)
+        edge_list = []
+        for edge in g.get_edges():
+            node1 = None
+            node2 = None
+            if isinstance(edge[0], _ValueVertex) and isinstance(edge[1], _ValueVertex):
+                node1 = f'{edge[0].item}, {edge[0].value}'
+                node2 = f'{edge[1].item}, {edge[1].value}'
+                edge_list.append()
+            elif isinstance(edge[0], _ValueVertex):
+                node1 = f'{edge[0].item}, {edge[0].value}'
+                vis.add_edge(node1, edge[1].item)
+            elif isinstance(edge[1], _ValueVertex):
+                node2 = f'{edge[1].item}, {edge[1].value}'
+                vis.add_edge(edge[0].item, node2)
+            else:
+                vis.add_edge(edge[0].item, edge[1].item)
 
-    nx.draw(vis, ax=ax, with_labels=True, node_size=700, node_color='skyblue')
-
-    canvas = FigureCanvasTkAgg(fig, master=graph_frame)
+    pos = nx.spring_layout(vis)
+    nx.draw(vis, ax=ax, pos=pos, with_labels=True, node_size=300)
     canvas.draw()
     canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
@@ -603,16 +583,22 @@ def submission_of_user():
     """
     song_name = song_entry.get()
     num_recommendations = int(limit_var.get())
-    graph_data = graph.recommend_songs(song_name, num_recommendations)
-    recommendation_graph = load_visualization_graph(graph, graph_data, song_name)
-    display_graph(recommendation_graph)
+    if graph.does_song_name_exist(song_name):
+        graph_data = graph.recommend_songs(song_name, num_recommendations)
+        recommendation_graph = load_visualization_graph(graph, graph_data, song_name)
+        display_graph(recommendation_graph)
+    else:
+        tk.messagebox.showwarning(title='Error', message="Song not in data base")
 
 
 if __name__ == '__main__':
     # create graph
     # TODO decide if we want one million songs, one hundred thousand, or some other number.
-    graph = load_graph("tracks_features_one_million.csv")
+    graph = load_graph("tracks_features_one_hundred_thousand.csv")
     # create GUI
+    figure = None
+    canvas = None
+
     root = tk.Tk()
     root.title("Music Recommendations")
 
