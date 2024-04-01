@@ -11,9 +11,9 @@ from tkinter import messagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import networkx as nx
+import python_ta
 import graph_classes
 import graph_loaders
-import python_ta
 
 
 # visualizing the graph
@@ -39,18 +39,8 @@ def display_graph(g: graph_classes.Graph = None) -> None:
     else:
         vis = nx.Graph()
         for edge in g.get_edges():
-            if isinstance(edge[0], graph_classes.ValueVertex) and isinstance(edge[1], graph_classes.ValueVertex):
-                node1 = f'{edge[0].item}, {edge[0].value}'
-                node2 = f'{edge[1].item}, {edge[1].value}'
-                vis.add_edge(node1, node2)
-            elif isinstance(edge[0], graph_classes.ValueVertex):
-                node1 = f'{edge[0].item}, {edge[0].value}'
-                vis.add_edge(node1, edge[1].item)
-            elif isinstance(edge[1], graph_classes.ValueVertex):
-                node2 = f'{edge[1].item}, {edge[1].value}'
-                vis.add_edge(edge[0].item, node2)
-            else:
-                vis.add_edge(edge[0].item, edge[1].item)
+            node1, node2 = edge_values(edge)
+            vis.add_edge(node1, node2)
 
         for node in vis.nodes:
             if any(value in node for value in values):
@@ -70,6 +60,26 @@ def display_graph(g: graph_classes.Graph = None) -> None:
         toolbar.pack(side=tk.BOTTOM, fill=tk.X)
     else:
         toolbar.update()
+
+
+def edge_values(edge: tuple) -> tuple:
+    """
+    Helper function for load_graph, returns edge values dependent on what position is a ValueVertex
+    """
+
+    if isinstance(edge[0], graph_classes.ValueVertex) and isinstance(edge[1], graph_classes.ValueVertex):
+        node1 = f'{edge[0].item}, {edge[0].value}'
+        node2 = f'{edge[1].item}, {edge[1].value}'
+    elif isinstance(edge[0], graph_classes.ValueVertex):
+        node1 = f'{edge[0].item}, {edge[0].value}'
+        node2 = edge[1].item
+    elif isinstance(edge[1], graph_classes.ValueVertex):
+        node1 = edge[0].item
+        node2 = f'{edge[1].item}, {edge[1].value}'
+    else:
+        node1 = edge[0].item
+        node2 = edge[1].item
+    return (node1, node2)
 
 
 def submission_of_user() -> None:
@@ -96,7 +106,8 @@ def submission_of_user() -> None:
 
 if __name__ == '__main__':
     python_ta.check_all(config={
-        'extra-imports': [],  # the names (strs) of imported modules
+        'extra-imports': ['tkinter', 'matplotlib.pyplot', 'matplotlib.backends.backend_tkagg',
+                          'networkx', 'graph_loaders', 'graph_classes'],
         'allowed-io': [],  # the names (strs) of functions that call print/open/input
         'max-line-length': 120
     })

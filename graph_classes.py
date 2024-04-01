@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 from typing import Any
+import doctest
 import python_ta
 
 
@@ -258,7 +259,7 @@ class Graph:
 
         >>> g = Graph()
         >>> g.add_vertex('1010001', 'song')
-        >>> g.add_song('1010001', 'Call Me Maybe')
+        >>> g.add_song('Call Me Maybe', '1010001')
         >>> song_vertex = g.get_song_vertex_by_name('Call Me Maybe')
         >>> song_vertex.item
         '1010001'
@@ -275,7 +276,7 @@ class Graph:
 
         >>> g = Graph()
         >>> g.add_vertex('1010001', 'song')
-        >>> g.add_song('1010001', 'Call Me Maybe')
+        >>> g.add_song('Call Me Maybe', '1010001')
         >>> g.get_song_by_name('Call Me Maybe')
         '1010001'
         """
@@ -291,7 +292,7 @@ class Graph:
 
         >>> g = Graph()
         >>> g.add_vertex('1010001', 'song')
-        >>> g.add_song('1010001', 'Call Me Maybe')
+        >>> g.add_song('Call Me Maybe', '1010001')
         >>> g.get_song_by_id('1010001')
         'Call Me Maybe'
         """
@@ -437,6 +438,8 @@ class Graph:
 
 
 if __name__ == '__main__':
+    doctest.testmod()
+
     python_ta.check_all(config={
         'extra-imports': ['annotations', 'Any'],  # the names (strs) of imported modules
         'allowed-io': [],  # the names (strs) of functions that call print/open/input

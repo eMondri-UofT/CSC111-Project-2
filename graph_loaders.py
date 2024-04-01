@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 import csv
+import doctest
 import python_ta
 import graph_classes
 
@@ -81,6 +82,8 @@ def load_visualization_graph(main_graph: graph_classes.Graph,
 
 
 if __name__ == '__main__':
+    doctest.testmod()
+
     python_ta.check_all(config={
         'extra-imports': ['annotations', 'csv', 'graph_classes'],  # the names (strs) of imported modules
         'allowed-io': ['load_graph'],  # the names (strs) of functions that call print/open/input

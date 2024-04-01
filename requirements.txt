@@ -1,0 +1,8 @@
+# CSC111 Project 2: package imports
+
+# Testing and code checking
+python-ta
+
+# Graphics and data visualization
+matplotlib
+networkx
