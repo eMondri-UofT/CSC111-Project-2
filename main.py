@@ -9,7 +9,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import networkx as nx
 
 
@@ -542,22 +542,23 @@ def display_graph(g: Graph = None):
     """
     Display the graph in the Tkinter window.
     """
-    global figure, canvas
+    global figure, canvas, toolbar
 
     if canvas is not None:
         figure.clear()
     else:
-        figure = plt.figure()
+        figure = plt.figure(figsize=(15, 8))
         canvas = FigureCanvasTkAgg(figure, master=graph_frame)
 
     ax = figure.add_subplot()
+    values = ['danceability', 'energy', 'valence']
+    node_colors = []
 
     if g is None:
         vis = nx.Graph()
         vis.add_node("No data available")
     else:
         vis = nx.Graph()
-        edge_list = []
         for edge in g.get_edges():
             node1 = None
             node2 = None
@@ -574,10 +575,24 @@ def display_graph(g: Graph = None):
             else:
                 vis.add_edge(edge[0].item, edge[1].item)
 
-    pos = nx.spring_layout(vis)
-    nx.draw(vis, ax=ax, pos=pos, with_labels=True, node_size=300)
+        for node in vis.nodes:
+            if any(value in node for value in values):
+                node_colors.append('green')
+            else:
+                node_colors.append('blue')
+
+    pos = nx.random_layout(vis)
+    nx.draw(vis, ax=ax, pos=pos, with_labels=True, node_size=500, font_size=10,
+            node_color=node_colors, edge_color='lightgray', width=1, alpha=0.5)
     canvas.draw()
     canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+    if toolbar is None:
+        toolbar = NavigationToolbar2Tk(canvas, graph_frame)
+        toolbar.update()
+        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+    else:
+        toolbar.update()
 
 
 def submission_of_user():
@@ -586,10 +601,18 @@ def submission_of_user():
     """
     song_name = song_entry.get()
     num_recommendations = int(limit_var.get())
+
     if graph.does_song_name_exist(song_name):
         graph_data = graph.recommend_songs(song_name, num_recommendations)
         recommendation_graph = load_visualization_graph(graph, graph_data, song_name)
+
         display_graph(recommendation_graph)
+
+        song_listbox.delete(0, tk.END)
+
+        for song in graph_data:
+            if song in graph.song_ids:
+                song_listbox.insert(tk.END, graph.get_song_by_id(song))
     else:
         tk.messagebox.showwarning(title='Error', message="Song not in data base")
 
@@ -601,9 +624,11 @@ if __name__ == '__main__':
     # create GUI
     figure = None
     canvas = None
+    toolbar = None
 
     root = tk.Tk()
     root.title("Music Recommendations")
+    root.state('zoomed')
 
     graph_frame = tk.Frame(root)
     graph_frame.pack(fill=tk.BOTH, expand=True)
@@ -621,6 +646,11 @@ if __name__ == '__main__':
     limit_var.set("5")  # default value
     limit_dropdown = ttk.Combobox(input_frame, textvariable=limit_var, values=["5", "10", "20"])
     limit_dropdown.pack(side=tk.LEFT, padx=5)
+
+    listbox_frame = tk.Frame(root)
+    listbox_frame.pack(fill=tk.BOTH, expand=True)
+    song_listbox = tk.Listbox(listbox_frame, width=50, height=10)
+    song_listbox.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
     submit_button = tk.Button(input_frame, text="Submit", command=submission_of_user)
     submit_button.pack(side=tk.LEFT, padx=5)
