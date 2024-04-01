@@ -583,7 +583,7 @@ def display_graph(g: Graph = None):
 
     pos = nx.random_layout(vis)
     nx.draw(vis, ax=ax, pos=pos, with_labels=True, node_size=500, font_size=10,
-            node_color=node_colors, edge_color='lightgray', width=1, alpha=0.5)
+            node_color=node_colors, edge_color='lightgray', width=1, alpha=0.7)
     canvas.draw()
     canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
